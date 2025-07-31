@@ -3,7 +3,7 @@ from fastapi import Request
 from typing import List
 from api.models.crud import Comment, CommentHistory, User
 from api.schemas.graphQL import CommentType, CommentHistoryType
-from api.schemas.crud import GetComment
+from api.schemas.crud import GetComment, GetCommentHistory
 from authentication.auth import create_access_token,get_current_user_from_request
 from passlib.context import CryptContext
 from datetime import datetime
@@ -23,24 +23,33 @@ class AuthPayload:
     
 @strawberry.type
 class Query:
+    # Get all comment
     @strawberry.field
     async def all_comments(self, info) -> List[CommentType]:
         request: Request = info.context["request"]
         user = await get_current_user_from_request(request)
         if not user:
             raise Exception("Unauthorized")
-        return await Comment.all()
+        user_group = user.user_group
+        user_in_group = await User.filter(user_group=user_group).values_list("username", flat=True)
+        return await Comment.filter(user__in=user_in_group)    
 
+    # Get all comment history
     @strawberry.field
-    async def all_comment_histories(self, info) -> List[CommentHistoryType]:
+    async def all_comment_history(self, info) -> List[CommentHistoryType]:
         request: Request = info.context["request"]
         user = await get_current_user_from_request(request)
         if not user:
             raise Exception("Unauthorized")
-        return await CommentHistory.all()
+        user_group = user.user_group
+        user_in_group = await User.filter(user_group=user_group).values_list("username", flat=True)
+        comment_data = await Comment.filter(user__in=user_in_group).values_list("id", flat=True)
+        history = CommentHistory.filter(id__in=comment_data)
+        return await GetCommentHistory.from_queryset(history)
 
 @strawberry.type
 class Mutation:
+    # Create new record
     @strawberry.mutation
     async def create_comment(self, user: str, content: str, info) -> CommentType:
         request: Request = info.context["request"]
@@ -50,6 +59,7 @@ class Mutation:
         comment = await Comment.create(user=user, content=content)
         return comment
 
+    # Update record
     @strawberry.mutation
     async def update_comment(self, id: int, user:str, content: str, info) -> CommentType:
         request: Request = info.context["request"]
@@ -81,7 +91,8 @@ class Mutation:
                 content=content
             )
             return await GetComment.from_queryset_single(Comment.get(id=id))
-
+    
+    # Delete record
     @strawberry.mutation
     async def delete_comment(self, id: int, info) -> str:
         request: Request = info.context["request"]

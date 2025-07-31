@@ -18,11 +18,15 @@ class LoginRequest(BaseModel):
 
 crud_router = APIRouter(tags=["CRUD Operations"])
 
+# Get all comment
 @crud_router.get("/")
 async def crud_get(current_user: User = Depends(get_current_user)):
-    data = Comment.all()
+    user_group = current_user.user_group
+    user_in_group = await User.filter(user_group=user_group).values_list("username", flat=True)
+    data = Comment.filter(user__in=user_in_group)
     return await GetComment.from_queryset(data)
-
+ 
+# Create new record
 @crud_router.post("/")
 async def crud_post(comment: PostComment, current_user: User = Depends(get_current_user)):
     row = await Comment.create(
@@ -31,10 +35,11 @@ async def crud_post(comment: PostComment, current_user: User = Depends(get_curre
     )
     return await GetComment.from_tortoise_orm(row)
 
+# Update record
 @crud_router.put("/{key}")
 async def crud_put(key: int, comment: PutComment, current_user: User = Depends(get_current_user)):
     dataBeforeUpdate = await GetComment.from_queryset(Comment.filter(id=key))
-    if comment.user != dataBeforeUpdate[0].user:
+    if current_user.username != dataBeforeUpdate[0].user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Permission denied: You are not the creator of the comment "
@@ -66,6 +71,7 @@ async def crud_put(key: int, comment: PutComment, current_user: User = Depends(g
         )
         return await GetComment.from_queryset_single(Comment.get(id=key))
 
+# Delete record
 @crud_router.delete("/{key}")
 async def crud_delete(key: int):
     isCommentExists = await Comment.filter(id=key).exists()
@@ -77,20 +83,25 @@ async def crud_delete(key: int):
     await Comment.filter(id=key).delete()
     return "Comment deleted successfully"
 
+# Get all comment history
 @crud_router.get("/commentHistory")
 async def crud_get(current_user: User = Depends(get_current_user)):
-    print("in history")
-    data = CommentHistory.all()
-    return await GetCommentHistory.from_queryset(data)
+    user_group = current_user.user_group
+    user_in_group = await User.filter(user_group=user_group).values_list("username", flat=True)
+    comment_data = await Comment.filter(user__in=user_in_group).values_list("id", flat=True)
+    history = CommentHistory.filter(id__in=comment_data)
+    return await GetCommentHistory.from_queryset(history)
 
+# Signup 
 @crud_router.post("/signup")
 async def signup(request: SignUpRequest):
     existing = await User.get_or_none(username=request.username)
     if existing:
         raise HTTPException(status_code=400, detail="Username already exists")
-    user = await User.create(username=request.username, hashed_password=bcrypt.hash(request.password), user_group=request.user_group)
+    await User.create(username=request.username, hashed_password=bcrypt.hash(request.password), user_group=request.user_group)
     return {"message": "User created"}
 
+# Existing login 
 @crud_router.post("/login")
 async def login(request: LoginRequest):
     user = await authenticate_user(request.username, request.password)
