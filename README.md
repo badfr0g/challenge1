@@ -25,8 +25,6 @@ This project demonstrates how to build a fully functional backend with:
 
 ## 📦 Setup Instructions
 
-### 🔁 1. Clone the Project
-
 ```bash
 git clone https://github.com/badfr0g/challenge1.git
 cd challenge1
@@ -36,7 +34,22 @@ uv sync
 
 🚀 3. Run the Server
 uv run main.py
+
 REST API: http://localhost:8000/docs
 GraphQL Playground: http://localhost:8000/graphql
 
 
+📁 Project Structure
+.
+├── main.py              # FastAPI entry point
+├── auth.py              # Auth utilities (JWT, password)
+├── models.py            # Tortoise ORM models
+├── schema.py            # GraphQL Schema
+├── routes/              # REST API routers
+├── .env                 # Environment variables
+├── requirements.txt
+├── init_db.py           # Optional DB initializer
+└── README.md
+
+✍️ License
+MIT License. Feel free to modify and use.
